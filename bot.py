@@ -123,6 +123,28 @@ def start(message):
     bot.send_message(message.chat.id, "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊")
     schedule_daily_reminders()
 
+@bot.message_handler(commands=['test'])
+def test_all_functions(message):
+    """Команда для тестирования всего функционала"""
+    global user_chat_id
+    user_chat_id = message.chat.id
+    bot.send_message(user_chat_id, "🔧 тестирую функции бота 🔧")
+    
+    # Случайная милая фраза
+    send_random_sweet_message(ignore_interval=True)
+    
+    # Случайный мем
+    send_random_meme(ignore_interval=True)
+    
+    # Тестовое напоминание с кнопками
+    bot.send_message(
+        user_chat_id,
+        "💊 тестовое напоминание! Нажми кнопку, чтобы проверить реакцию бота:",
+        reply_markup=reminder_keyboard()
+    )
+    
+    bot.send_message(user_chat_id, "✅ тест завершён! Нажми 💚, чтобы проверить уведомление на OWNER_CHAT_ID.")
+    
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     """Обработка нажатий на кнопки"""
