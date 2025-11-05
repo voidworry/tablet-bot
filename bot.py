@@ -74,7 +74,6 @@ MIN_INTERVAL = timedelta(minutes=20)  # минимум 20 минут между 
 
 # ------------------- Функции -------------------
 def send_reminder():
-    """Отправка напоминания о таблетке с кнопками"""
     global last_message_time
     if user_chat_id:
         bot.send_message(
@@ -85,8 +84,6 @@ def send_reminder():
         last_message_time = datetime.now()
 
 def send_random_sweet_message(ignore_interval=False):
-    """Отправка случайной милой фразы, если прошло достаточно времени с последнего сообщения
-    ignore_interval=True используется для теста, чтобы игнорировать MIN_INTERVAL"""
     global last_message_time
     now = datetime.now()
     if not ignore_interval and last_message_time and (now - last_message_time) < MIN_INTERVAL:
@@ -96,8 +93,6 @@ def send_random_sweet_message(ignore_interval=False):
         last_message_time = now
 
 def send_random_meme(ignore_interval=False):
-    """Отправка случайного мема, если прошло достаточно времени с последнего сообщения
-    ignore_interval=True используется для теста, чтобы игнорировать MIN_INTERVAL"""
     global last_message_time
     now = datetime.now()
     if not ignore_interval and last_message_time and (now - last_message_time) < MIN_INTERVAL:
@@ -107,7 +102,6 @@ def send_random_meme(ignore_interval=False):
         last_message_time = now
 
 def reminder_keyboard():
-    """Создание клавиатуры с кнопками 'Принял' и 'Отложить'"""
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("💚 принял", callback_data="taken"),
@@ -125,7 +119,6 @@ def start(message):
 
 @bot.message_handler(commands=['test'])
 def test_all_functions(message):
-    """Команда для тестирования всего функционала"""
     global user_chat_id
     user_chat_id = message.chat.id
     bot.send_message(user_chat_id, "🔧 тестирую функции бота 🔧")
@@ -147,7 +140,6 @@ def test_all_functions(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    """Обработка нажатий на кнопки"""
     if call.data == "taken":
         bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра 💖")
         schedule_daily_reminders()
@@ -156,10 +148,9 @@ def callback_query(call):
         bot.answer_callback_query(call.id, "окей, напомню через час 💕")
         scheduler.add_job(send_reminder, 'date', run_date=datetime.now() + timedelta(hours=1))
 
-# ------------------- Игривое Эхо -------------------
+# ------------------- Эхо -------------------
 @bot.message_handler(func=lambda message: True)
 def playful_echo(message):
-    """Если сообщение не команда, бот повторяет его с юмором и смайликами"""
     if message.text.startswith("/"):
         return
 
@@ -179,7 +170,6 @@ def playful_echo(message):
 
 # ------------------- Планировщик -------------------
 def schedule_daily_reminders():
-    """Планирование напоминаний, милых фраз и мемов"""
     scheduler.remove_all_jobs()
     now = datetime.now()
     
