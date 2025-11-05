@@ -4,74 +4,139 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 import os
 
+# ------------------- Настройки -------------------
 TOKEN = os.getenv("TOKEN")
+OWNER_CHAT_ID = os.getenv("OWNER_CHAT_ID")  # твой личный ID для уведомлений
+
+if not TOKEN:
+    raise ValueError("TOKEN не найден в переменных окружения!")
+if not OWNER_CHAT_ID:
+    raise ValueError("OWNER_CHAT_ID не найден в переменных окружения!")
+
+OWNER_CHAT_ID = int(OWNER_CHAT_ID)
+print("TOKEN и OWNER_CHAT_ID загружены успешно.")
 
 bot = telebot.TeleBot(TOKEN)
 scheduler = BackgroundScheduler()
 user_chat_id = None
-reminder_job = None
 
-# Милые фразы для случайных сообщений
+# ------------------- Контент -------------------
 sweet_messages = [
-    "💖 Не забудь, ты у меня самый ответственный!",
-    "🐾 Таблеточка ждёт тебя!",
-    "☀️ Горжусь тобой, что заботишься о себе!",
-    "🧸 Люблю тебя, не забудь принять лекарство~",
-    "🌼 Твоя забота о себе делает мой день лучше!"
+    "💖 напоминаю, я тебя люблю ❣️",
+    "🐾 ты у меня самый замечательный ✨",
+    "☀️ горжусь тобой, что заботишься о себе 🌸",
+    "🧸 надеюсь, ты чувствуешь себя хорошо >.<",
+    "🌼 твоя забота о себе делает мой день лучше 🌷",
+    "💛 ты самый смелый и сильный ⭐️",
+    "🌸 мое сердце радуется, когда думаю о тебе 🫶",
+    "🐱 не забывай улыбаться, ты чудо ❣️",
+    "✨ каждый день с тобой особенный 🌟",
+    "💐 ты заслуживаешь только счастья 🍀",
+    "🌞 твоя энергия делает мир ярче ☀️",
+    "🫂 помни, я всегда рядом мысленно с тобой 💫",
+    "💌 ты делаешь меня счастливой просто своим существованием 🐾",
+    "🎀 ты — моя радость и вдохновение 🌸",
+    "🥰 я горжусь тобой за каждое маленькое усилие ✨",
+    "💫 ты такой уникальный, что словами не описать ❣️",
+    "🌷 твоя доброта делает мир лучше 🐱",
+    "💭 думаю о тебе и улыбаюсь 🌸",
+    "🧡 ты наполняешь мой день теплом 🌞",
+    "🐝 ты трудолюбивый и замечательный ⭐️",
+    "🍀 желаю тебе сегодня только удачи и радости ✨",
+    "🎶 ты как музыка, делаешь всё вокруг гармоничным 🐾",
+    "💎 ты драгоценен и ценен ❣️",
+    "🌹 твоя улыбка — лучик солнца ☀️",
+    "🪷 я верю в тебя, всегда и во всём 🌸"
 ]
 
+memes = [
+    "https://i.imgflip.com/4/3vzej.jpg",
+    "https://i.imgflip.com/5/4t0m5.jpg",
+    "https://i.imgflip.com/1bij.jpg"
+]
+
+# Для контроля интервалов между случайными сообщениями
+last_message_time = None
+MIN_INTERVAL = timedelta(minutes=20)  # минимум 20 минут между случайными сообщениями
+
+# ------------------- Функции -------------------
 def send_reminder():
+    global last_message_time
     if user_chat_id:
         bot.send_message(
             user_chat_id,
-            "💊 Пора принять таблетку!\n\nНажми «Принял 💚» если уже выпил, или «Отложить на час 🕒» если позже 💕",
+            "💊 пора принять таблетку!\n\nнажми «принял 💚» если уже выпил, или «отложить на час 🕒» если позже 💕",
             reply_markup=reminder_keyboard()
         )
+        last_message_time = datetime.now()
 
 def send_random_sweet_message():
+    global last_message_time
+    now = datetime.now()
+    if last_message_time and (now - last_message_time) < MIN_INTERVAL:
+        return
     if user_chat_id:
-        msg = random.choice(sweet_messages)
-        bot.send_message(user_chat_id, msg)
+        bot.send_message(user_chat_id, random.choice(sweet_messages))
+        last_message_time = now
+
+def send_random_meme():
+    global last_message_time
+    now = datetime.now()
+    if last_message_time and (now - last_message_time) < MIN_INTERVAL:
+        return
+    if user_chat_id:
+        bot.send_photo(user_chat_id, random.choice(memes))
+        last_message_time = now
 
 def reminder_keyboard():
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
-        telebot.types.InlineKeyboardButton("💚 Принял", callback_data="taken"),
-        telebot.types.InlineKeyboardButton("🕒 Отложить на час", callback_data="delay")
+        telebot.types.InlineKeyboardButton("💚 принял", callback_data="taken"),
+        telebot.types.InlineKeyboardButton("🕒 отложить на час", callback_data="delay")
     )
     return markup
 
+# ------------------- Обработчики -------------------
 @bot.message_handler(commands=['start'])
 def start(message):
     global user_chat_id
     user_chat_id = message.chat.id
-    bot.send_message(message.chat.id, "Привет, солнце ☀️ Я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊")
+    bot.send_message(message.chat.id, "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊")
     schedule_daily_reminders()
-
-def schedule_daily_reminders():
-    global reminder_job
-    scheduler.remove_all_jobs()
-
-    now = datetime.now()
-    start_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
-    if now > start_time:
-        start_time = start_time + timedelta(days=1)
-
-    reminder_job = scheduler.add_job(send_reminder, 'interval', minutes=30, start_date=start_time)
-
-    for _ in range(3):
-        random_hour = random.randint(9, 22)
-        random_minute = random.randint(0, 59)
-        scheduler.add_job(send_random_sweet_message, 'cron', hour=random_hour, minute=random_minute)
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == "taken":
-        bot.answer_callback_query(call.id, "Молодец! 🌸 Напоминания вернутся завтра 💖")
+        bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра 💖")
         schedule_daily_reminders()
+        bot.send_message(OWNER_CHAT_ID, f"сашенька отметил, что выпил таблетку 💊")
     elif call.data == "delay":
-        bot.answer_callback_query(call.id, "Окей, напомню через час 💕")
+        bot.answer_callback_query(call.id, "окей, напомню через час 💕")
         scheduler.add_job(send_reminder, 'date', run_date=datetime.now() + timedelta(hours=1))
 
+# ------------------- Планировщик -------------------
+def schedule_daily_reminders():
+    scheduler.remove_all_jobs()
+    now = datetime.now()
+    
+    # напоминания с 8 утра каждые 30 минут
+    start_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
+    if now > start_time:
+        start_time += timedelta(days=1)
+    scheduler.add_job(send_reminder, 'interval', minutes=30, start_date=start_time)
+
+    # случайные милые фразы — 3 раза в день
+    for _ in range(3):
+        hour = random.randint(9, 22)
+        minute = random.randint(0, 59)
+        scheduler.add_job(send_random_sweet_message, 'cron', hour=hour, minute=minute)
+
+    # случайные мемы — 2 раза в день
+    for _ in range(2):
+        hour = random.randint(10, 22)
+        minute = random.randint(0, 59)
+        scheduler.add_job(send_random_meme, 'cron', hour=hour, minute=minute)
+
+# ------------------- Старт -------------------
 scheduler.start()
 bot.polling(none_stop=True)
