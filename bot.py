@@ -3,10 +3,12 @@ import random
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 import os
+import threading
+import time
 
 # ------------------- Настройки -------------------
 TOKEN = os.getenv("TOKEN")
-OWNER_CHAT_ID = os.getenv("OWNER_CHAT_ID")  # твой личный ID для уведомлений
+OWNER_CHAT_ID = os.getenv("OWNER_CHAT_ID") 
 
 if not TOKEN:
     raise ValueError("TOKEN не найден в переменных окружения!")
@@ -41,26 +43,40 @@ sweet_messages = [
     "🌷 твоя доброта делает мир лучше 🐱",
     "💭 думаю о тебе и улыбаюсь 🌸",
     "🧡 ты наполняешь мой день теплом 🌞",
-    "🐝 ты трудолюбивый и замечательный ⭐️",
+    "🐝 ты - мое счастье ⭐️",
     "🍀 желаю тебе сегодня только удачи и радости ✨",
-    "🎶 ты как музыка, делаешь всё вокруг гармоничным 🐾",
+    "🎶 ты сводишь меня с ума 🐾",
     "💎 ты драгоценен и ценен ❣️",
     "🌹 твоя улыбка — лучик солнца ☀️",
     "🪷 я верю в тебя, всегда и во всём 🌸"
 ]
 
 memes = [
-    "https://i.imgflip.com/4/3vzej.jpg",
-    "https://i.imgflip.com/5/4t0m5.jpg",
-    "https://i.imgflip.com/1bij.jpg"
+    "https://i.yapx.ru/cEGTF.jpg",
+    "https://i.yapx.ru/cEGTH.jpg",
+    "https://i.yapx.ru/cEGTI.jpg",
+    "https://i.yapx.ru/cEGTJ.jpg",
+    "https://i.yapx.ru/cEGTK.jpg",
+    "https://i.yapx.ru/cEGTL.jpg",
+    "https://i.yapx.ru/cEGTM.jpg",
+    "https://i.yapx.ru/cEGTO.jpg",
+    "https://i.yapx.ru/cEGTP.jpg",
+    "https://i.yapx.ru/cEGTR.jpg",
+    "https://i.yapx.ru/cEGTS.jpg",
+    "https://i.yapx.ru/cEGTT.jpg",
+    "https://i.yapx.ru/cEGTU.jpg",
+    "https://i.yapx.ru/cEGTV.jpg",
+    "https://i.yapx.ru/cEGTX.jpg",
+    "https://i.yapx.ru/cEGTY.jpg",
+    "https://i.yapx.ru/cEGTa.jpg"
 ]
 
-# Для контроля интервалов между случайными сообщениями
 last_message_time = None
 MIN_INTERVAL = timedelta(minutes=20)  # минимум 20 минут между случайными сообщениями
 
 # ------------------- Функции -------------------
 def send_reminder():
+    """Отправка напоминания о таблетке с кнопками"""
     global last_message_time
     if user_chat_id:
         bot.send_message(
@@ -71,6 +87,7 @@ def send_reminder():
         last_message_time = datetime.now()
 
 def send_random_sweet_message():
+    """Отправка случайной милой фразы, если прошло достаточно времени с последнего сообщения"""
     global last_message_time
     now = datetime.now()
     if last_message_time and (now - last_message_time) < MIN_INTERVAL:
@@ -80,6 +97,7 @@ def send_random_sweet_message():
         last_message_time = now
 
 def send_random_meme():
+    """Отправка случайного мема, если прошло достаточно времени с последнего сообщения"""
     global last_message_time
     now = datetime.now()
     if last_message_time and (now - last_message_time) < MIN_INTERVAL:
@@ -89,6 +107,7 @@ def send_random_meme():
         last_message_time = now
 
 def reminder_keyboard():
+    """Создание клавиатуры с кнопками 'Принял' и 'Отложить'"""
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("💚 принял", callback_data="taken"),
@@ -106,6 +125,7 @@ def start(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
+    """Обработка нажатий на кнопки"""
     if call.data == "taken":
         bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра 💖")
         schedule_daily_reminders()
@@ -114,24 +134,43 @@ def callback_query(call):
         bot.answer_callback_query(call.id, "окей, напомню через час 💕")
         scheduler.add_job(send_reminder, 'date', run_date=datetime.now() + timedelta(hours=1))
 
+# ------------------- Игривое Эхо -------------------
+@bot.message_handler(func=lambda message: True)
+def playful_echo(message):
+    """Если сообщение не команда, бот повторяет его с юмором и смайликами"""
+    if message.text.startswith("/"):
+        return
+
+    playful_suffixes = [" 😜", " 🤭", " 🐾", "✨", "😂", "💖", "🤪", "🌸", "🐱"]
+    playful_prefixes = ["о, ", "ага, ", "ммм, ", "эй, "]
+
+    prefix = random.choice(playful_prefixes) if random.random() < 0.5 else ""
+    suffix = random.choice(playful_suffixes) if random.random() < 0.7 else ""
+
+    text = message.text
+    if random.random() < 0.3:
+        text = text.upper()
+    elif random.random() < 0.3:
+        text = text + "..."
+
+    bot.send_message(message.chat.id, f"{prefix}{text}{suffix}")
+
 # ------------------- Планировщик -------------------
 def schedule_daily_reminders():
+    """Планирование напоминаний, милых фраз и мемов"""
     scheduler.remove_all_jobs()
     now = datetime.now()
     
-    # напоминания с 8 утра каждые 30 минут
     start_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
     if now > start_time:
         start_time += timedelta(days=1)
     scheduler.add_job(send_reminder, 'interval', minutes=30, start_date=start_time)
 
-    # случайные милые фразы — 3 раза в день
     for _ in range(3):
         hour = random.randint(9, 22)
         minute = random.randint(0, 59)
         scheduler.add_job(send_random_sweet_message, 'cron', hour=hour, minute=minute)
 
-    # случайные мемы — 2 раза в день
     for _ in range(2):
         hour = random.randint(10, 22)
         minute = random.randint(0, 59)
@@ -140,3 +179,33 @@ def schedule_daily_reminders():
 # ------------------- Старт -------------------
 scheduler.start()
 bot.polling(none_stop=True)
+
+# =================== РАСШИРЕННАЯ ПРОВЕРКА ===================
+# Этот блок проверяет работу:
+# 1) напоминание о таблетке с кнопками
+# 2) случайную милую фразу
+# 3) случайный мем
+# 4) игривое эхо
+def test_bot_features():
+    if user_chat_id is None:
+        print("пользовательский чат id не установлен. отправьте /start боту перед тестом")
+        return
+
+    time.sleep(5)
+    print("отправка тестового напоминания...")
+    send_reminder()
+
+    time.sleep(5)
+    print("отправка тестовой милой фразы...")
+    send_random_sweet_message()
+
+    time.sleep(5)
+    print("отправка тестового мема...")
+    send_random_meme()
+
+    time.sleep(5)
+    print("тестируем игривое эхо...")
+    bot.send_message(user_chat_id, "это тест игривого эхо")
+
+threading.Thread(target=test_bot_features).start()
+# =================== КОНЕЦ РАСШИРЕННОЙ ПРОВЕРКИ ===================
