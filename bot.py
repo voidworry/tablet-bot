@@ -2,9 +2,9 @@ import telebot
 import random
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
+import os
 
-# 🔑 ВСТАВЬ сюда свой токен бота из BotFather
-TOKEN = "8241472596:AAHY7NiEJSsShZRj6SQCL-Np8oUMnmsmG00"
+TOKEN = os.getenv("TOKEN")
 
 bot = telebot.TeleBot(TOKEN)
 scheduler = BackgroundScheduler()
