@@ -176,31 +176,6 @@ def schedule_daily_reminders():
         minute = random.randint(0, 59)
         scheduler.add_job(send_random_meme, 'cron', hour=hour, minute=minute)
 
-# ------------------- Команда /test для проверки -------------------
-@bot.message_handler(commands=['test'])
-def test_command(message):
-    """Запуск теста всех функций бота через команду /test"""
-    global user_chat_id
-    user_chat_id = message.chat.id  # гарантируем, что ID есть
-
-    bot.send_message(user_chat_id, "🚀 начинаем тест бота...")
-
-    # Отправка тестового напоминания
-    send_reminder()
-    bot.send_message(user_chat_id, "✅ тестовое напоминание отправлено")
-
-    # Милые фразы (игнорируем интервал)
-    send_random_sweet_message(ignore_interval=True)
-    bot.send_message(user_chat_id, "✅ тестовая милая фраза отправлена")
-
-    # Мем (игнорируем интервал)
-    send_random_meme(ignore_interval=True)
-    bot.send_message(user_chat_id, "✅ тестовый мем отправлен")
-
-    # Игривое эхо
-    bot.send_message(user_chat_id, "это тест игривого эхо 😜")
-# ------------------- КОНЕЦ /test -------------------
-
 # ------------------- Старт -------------------
 scheduler.start()
 bot.polling(none_stop=True)
