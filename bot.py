@@ -158,12 +158,21 @@ def start_reminder_system():
     logger.info(f"Система напоминаний запущена, первое напоминание в {start_time}")
 
 def remove_reminder_jobs():
-    """Удаляем задания напоминаний"""
-    for job_id in ["interval_reminder", "delayed_reminder"]:
+    """Удаляем ВСЕ задания напоминаний"""
+    reminder_job_ids = ["interval_reminder", "delayed_reminder", "start_tomorrow"]
+    for job_id in reminder_job_ids:
         try:
             scheduler.remove_job(job_id)
         except:
             pass
+    
+    # Также удаляем все задания, содержащие "reminder" в названии
+    for job in scheduler.get_jobs():
+        if 'reminder' in job.id:
+            try:
+                scheduler.remove_job(job.id)
+            except:
+                pass
 
 def schedule_delayed_reminder():
     """Отложенное напоминание через час"""
@@ -239,8 +248,8 @@ def callback_query(call):
 
     # Определяем ответ и действие для каждого случая
     responses = {
-        "already_taken": ("💚 умничка! 🌸 напоминания вернутся завтра в 8 утра 💖", "start_tomorrow"),
-        "taken": ("💚 умничка! 🌸 напоминания вернутся завтра в 8 утра 💖", "start_tomorrow"), 
+        "already_taken": ("💚 умничка! 🌸 напоминания вернутся завтра в 8 утра 💖", "stop_until_tomorrow"),
+        "taken": ("💚 умничка! 🌸 напоминания вернутся завтра в 8 утра 💖", "stop_until_tomorrow"), 
         "not_yet": ("💊 хорошо! напомню тебе через полчаса! 🌸", "start_now"),
         "delay": ("🕒 окей, напомню через час 💕", "delay_hour")
     }
@@ -249,13 +258,26 @@ def callback_query(call):
         response, action = responses[call.data]
         
         # Выполняем соответствующее действие
-        if action == "start_tomorrow":
+        if action == "stop_until_tomorrow":
+            # ОСТАНАВЛИВАЕМ все текущие напоминания
+            remove_reminder_jobs()
+            
+            # Планируем запуск напоминаний на завтра в 8 утра
             tomorrow_8am = get_moscow_time().replace(hour=8, minute=0, second=0, microsecond=0) + timedelta(days=1)
-            scheduler.add_job(start_reminder_system, 'date', run_date=tomorrow_8am)
+            scheduler.add_job(
+                start_reminder_system,
+                'date',
+                run_date=tomorrow_8am,
+                id="start_tomorrow"
+            )
             safe_send_message(OWNER_CHAT_ID, "сашенька отметил, что выпил таблетку 💊")
+            
         elif action == "start_now":
+            # Запускаем систему напоминаний через 30 минут
             start_reminder_system()
+            
         elif action == "delay_hour":
+            # Откладываем напоминание на час
             schedule_delayed_reminder()
         
         # Отправляем ответ пользователю
@@ -311,11 +333,34 @@ def show_jobs(message):
     
     safe_send_message(message.chat.id, job_info)
 
-@bot.message_handler(commands=['test'])
-def test_content(message):
-    """Тестовая отправка контента"""
-    send_random_content()
-    safe_send_message(message.chat.id, "Тестовый контент отправлен! 🌸")
+@bot.message_handler(commands=['ping'])
+def ping(message):
+    start_time = time.time()
+    bot.send_message(message.chat.id, "🏓 понг!")
+    response_time = round((time.time() - start_time) * 1000, 2)
+    status = "⚠️ МЕДЛЕННО" if response_time > 1000 else "✅ НОРМА" if response_time > 100 else "🚀 БЫСТРО"
+    bot.send_message(message.chat.id, f"⏱ {response_time} мс | {status}")
+
+# ------------------- эхо -------------------
+@bot.message_handler(func=lambda message: True)
+def playful_echo(message):
+    """Если сообщение не команда, бот повторяет его с юмором и смайликами"""
+    if message.text.startswith("/"):
+        return
+
+    playful_suffixes = [" 😜", " 🤭", " 🐾", "✨", "😂", "💖", "🤪", "🌸", "🐱"]
+    playful_prefixes = ["о, ", "ага, ", "ммм, ", "эй, "]
+
+    prefix = random.choice(playful_prefixes) if random.random() < 0.5 else ""
+    suffix = random.choice(playful_suffixes) if random.random() < 0.7 else ""
+
+    text = message.text
+    if random.random() < 0.3:
+        text = text.upper()
+    elif random.random() < 0.3:
+        text = text + "..."
+
+    safe_send_message(message.chat.id, f"{prefix}{text}{suffix}")
 
 # ------------------- запуск -------------------
 def run_bot():
