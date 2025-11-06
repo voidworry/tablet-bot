@@ -79,7 +79,7 @@ def reminder_keyboard():
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("💚 принял", callback_data="taken"),
-        telebot.types.InlineKeyboardButton("🕒 отложить", callback_data="delay")  # 🔴 ТЕСТ: без указания времени
+        telebot.types.InlineKeyboardButton("🕒 отложить", callback_data="delay")
     )
     return markup
 
@@ -94,30 +94,43 @@ def remove_reminder_jobs():
     except:
         pass
 
-def schedule_daily_reminders(next_day=False):
-    """Планируем ежедневные напоминания (для теста - короткие интервалы)"""
-    global user_chat_id
-    now = datetime.now()
-    
-    # 🔴 ТЕСТ: короткие интервалы для тестирования
-    if next_day:
-        start_time = now + timedelta(seconds=30)  # 🔴 ТЕСТ: через 30 секунд
-    else:
-        start_time = now + timedelta(seconds=10)  # 🔴 ТЕСТ: через 10 секунд
-    
-    logger.info(f"🔴 ТЕСТ: Планируем напоминания с {start_time}")
-    
-    # Удаляем старые напоминания
+def schedule_interval_reminders():
+    """Планируем регулярные интервальные напоминания"""
     remove_reminder_jobs()
     
-    # 🔴 ТЕСТ: интервал 1 минута вместо 30
+    # 🔴 ТЕСТ: начинаем через 10 секунд, интервал 1 минута
+    start_time = datetime.now() + timedelta(seconds=10)
+    
     scheduler.add_job(
         send_reminder, 
         'interval', 
-        minutes=1,  # 🔴 ТЕСТ: 1 минута
+        minutes=1,
         start_date=start_time,
         id="interval_reminder"
     )
+    logger.info(f"🔴 ТЕСТ: Интервальные напоминания запланированы с {start_time}")
+
+def schedule_delayed_reminder():
+    """Планируем одно отложенное напоминание"""
+    remove_reminder_jobs()
+    
+    # 🔴 ТЕСТ: откладываем на 30 секунд
+    run_time = datetime.now() + timedelta(seconds=30)
+    scheduler.add_job(
+        send_reminder, 
+        'date', 
+        run_date=run_time, 
+        id="delayed_reminder"
+    )
+    
+    # 🔴 ВАЖНО: после отложенного напоминания снова запускаем интервальные
+    scheduler.add_job(
+        schedule_interval_reminders,
+        'date',
+        run_date=run_time + timedelta(seconds=5),  # Через 5 сек после напоминания
+        id="restart_interval"
+    )
+    logger.info(f"🔴 ТЕСТ: Отложенное напоминание на {run_time}")
 
 def schedule_content_messages():
     """Планируем мемы и милые сообщения (для теста - короткие интервалы)"""
@@ -134,7 +147,7 @@ def schedule_content_messages():
     
     # 3 милых сообщения в течение 5 минут
     for i in range(3):
-        run_time = now + timedelta(minutes=i*2, seconds=30)  # 🔴 ТЕСТ: через 0.5, 2.5, 4.5 минут
+        run_time = now + timedelta(minutes=i*2, seconds=30)
         scheduler.add_job(
             send_random_sweet_message, 
             'date', 
@@ -145,7 +158,7 @@ def schedule_content_messages():
     
     # 2 мема в течение 5 минут  
     for i in range(2):
-        run_time = now + timedelta(minutes=i*2 + 1, seconds=15)  # 🔴 ТЕСТ: через 1.25, 3.25 минут
+        run_time = now + timedelta(minutes=i*2 + 1, seconds=15)
         scheduler.add_job(
             send_random_meme, 
             'date', 
@@ -168,7 +181,7 @@ def start(message):
     )
     
     # Планируем напоминания и контент
-    schedule_daily_reminders()
+    schedule_interval_reminders()
     schedule_content_messages()
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -183,7 +196,12 @@ def callback_query(call):
             reply_markup=None
         )
         # 🔴 ТЕСТ: переносим на 30 секунд вместо след дня
-        schedule_daily_reminders(next_day=True)
+        scheduler.add_job(
+            schedule_interval_reminders,
+            'date',
+            run_date=datetime.now() + timedelta(seconds=30),
+            id="restart_after_taken"
+        )
         bot.send_message(OWNER_CHAT_ID, f"🔴 ТЕСТ: сашенька отметил таблетку")
 
     elif call.data == "delay":
@@ -193,18 +211,8 @@ def callback_query(call):
             message_id=call.message.message_id,
             reply_markup=None
         )
-        # Удаляем текущие напоминания
-        remove_reminder_jobs()
-        
-        # 🔴 ТЕСТ: откладываем на 30 секунд вместо часа
-        run_time = datetime.now() + timedelta(seconds=30)
-        scheduler.add_job(
-            send_reminder, 
-            'date', 
-            run_date=run_time, 
-            id="delayed_reminder"
-        )
-        logger.info(f"🔴 ТЕСТ: Напоминание отложено на {run_time}")
+        # Планируем отложенное напоминание
+        schedule_delayed_reminder()
 
 # ------------------- команды для тестирования -------------------
 @bot.message_handler(commands=['test_meme'])
@@ -232,12 +240,10 @@ def clear_jobs(message):
     scheduler.remove_all_jobs()
     bot.send_message(message.chat.id, "🔴 ТЕСТ: Все задания очищены")
 
-@bot.message_handler(commands=['restart'])
-def restart(message):
-    bot.send_message(message.chat.id, "🔴 ТЕСТ: Перезапускаем планировщик...")
-    scheduler.remove_all_jobs()
-    schedule_daily_reminders()
-    schedule_content_messages()
+@bot.message_handler(commands=['restart_reminders'])
+def restart_reminders(message):
+    schedule_interval_reminders()
+    bot.send_message(message.chat.id, "🔴 ТЕСТ: Напоминания перезапущены")
 
 # ------------------- эхо -------------------
 @bot.message_handler(func=lambda message: True)
