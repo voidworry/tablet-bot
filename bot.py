@@ -93,7 +93,8 @@ def get_moscow_time():
         return datetime.now(MOSCOW_TZ)
     else:
         # Если нет zoneinfo, используем UTC+3 вручную
-        return datetime.utcnow() + timedelta(hours=3)
+        utc_time = datetime.utcnow()
+        return utc_time + timedelta(hours=3)
 
 def send_reminder():
     global last_message_time
@@ -255,7 +256,7 @@ def schedule_content_messages():
     now = get_moscow_time()  # 🔴 МОСКОВСКОЕ ВРЕМЯ
     logger.info(f"🔄 Планирование контента на СЕГОДНЯ: {now.date()}")
     
-    # 🔴 ВАЖНО: планируем только на СЕГОДНЯ
+    # 🔴 ФИКС: правильно сравниваем время с учетом часовых поясов
     today = now.date()
     
     # Планируем 3 милых сообщения в случайное время с 9 до 22 СЕГОДНЯ
@@ -264,12 +265,17 @@ def schedule_content_messages():
         hour = random.randint(9, 22)
         minute = random.randint(0, 59)
         
-        # Создаем время СЕГОДНЯ
-        run_time = datetime.combine(today, datetime.min.time()).replace(
-            hour=hour, minute=minute, second=0, microsecond=0
-        )
+        # Создаем время СЕГОДНЯ в том же формате что и now
+        if MOSCOW_TZ:
+            run_time = MOSCOW_TZ.localize(datetime(
+                today.year, today.month, today.day, hour, minute, 0
+            ))
+        else:
+            run_time = datetime(
+                today.year, today.month, today.day, hour, minute, 0
+            )
         
-        # Если время уже прошло сегодня, пропускаем (не планируем на завтра)
+        # 🔴 ФИКС: правильно сравниваем aware и naive datetime
         if run_time < now:
             logger.info(f"⏰ Время для милого сообщения {i+1} уже прошло, пропускаем")
             continue
@@ -289,12 +295,17 @@ def schedule_content_messages():
         hour = random.randint(10, 22)
         minute = random.randint(0, 59)
         
-        # Создаем время СЕГОДНЯ
-        run_time = datetime.combine(today, datetime.min.time()).replace(
-            hour=hour, minute=minute, second=0, microsecond=0
-        )
+        # Создаем время СЕГОДНЯ в том же формате что и now
+        if MOSCOW_TZ:
+            run_time = MOSCOW_TZ.localize(datetime(
+                today.year, today.month, today.day, hour, minute, 0
+            ))
+        else:
+            run_time = datetime(
+                today.year, today.month, today.day, hour, minute, 0
+            )
         
-        # Если время уже прошло сегодня, пропускаем (не планируем на завтра)
+        # 🔴 ФИКС: правильно сравниваем aware и naive datetime
         if run_time < now:
             logger.info(f"⏰ Время для мема {i+1} уже прошло, пропускаем")
             continue
@@ -312,7 +323,14 @@ def schedule_content_messages():
     
     # 🔴 ДОБАВЛЯЕМ: планируем перепланировку контента на СЛЕДУЮЩИЙ день в 00:01
     tomorrow = today + timedelta(days=1)
-    next_day_time = datetime.combine(tomorrow, datetime.min.time()).replace(hour=0, minute=1, second=0)
+    if MOSCOW_TZ:
+        next_day_time = MOSCOW_TZ.localize(datetime(
+            tomorrow.year, tomorrow.month, tomorrow.day, 0, 1, 0
+        ))
+    else:
+        next_day_time = datetime(
+            tomorrow.year, tomorrow.month, tomorrow.day, 0, 1, 0
+        )
     
     scheduler.add_job(
         schedule_content_messages,
@@ -494,7 +512,6 @@ def ping(message):
         f"📊 Статус: {'⚠️ МЕДЛЕННО' if response_time > 1000 else '✅ НОРМА' if response_time > 100 else '🚀 БЫСТРО'}"
     )
 
-# ------------------- пинг -------------------
 @bot.message_handler(commands=['ping2'])
 def ping2(message):
     """Альтернативная версия ping с разными тестами"""
