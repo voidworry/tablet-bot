@@ -114,39 +114,31 @@ def reminder_keyboard():
 def start(message):
     global user_chat_id
     user_chat_id = message.chat.id
-    bot.send_message(user_chat_id, "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊\n\nа сегодня ты уже выпил таблетку?", reply_markup=reminder_keyboard())
-    schedule_daily_reminders()
+    bot.send_message(user_chat_id, "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут\nа сегодня ты уже выпил таблетку?", reply_markup=reminder_keyboard())
+    schedule_reminders_after_start()
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == "taken":
         bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра 💖")
-        schedule_daily_reminders()
+        schedule_daily_reminders_for_next_day()
         bot.send_message(OWNER_CHAT_ID, f"сашенька отметил, что выпил таблетку 💊")
     elif call.data == "delay":
         bot.answer_callback_query(call.id, "окей, напомню через час 💕")
         scheduler.add_job(send_reminder, 'date', run_date=datetime.now() + timedelta(hours=1))
 
 # ------------------- планировщик -------------------
-def schedule_daily_reminders():
+def schedule_reminders_after_start():
+    """интервал напоминаний 30 минут после стартового сообщения"""
+    scheduler.remove_all_jobs()
+    scheduler.add_job(send_reminder, 'interval', minutes=30, next_run_time=datetime.now() + timedelta(minutes=30))
+
+def schedule_daily_reminders_for_next_day():
+    """после нажатия 'принял' новые напоминания с 8 утра следующего дня"""
     scheduler.remove_all_jobs()
     now = datetime.now()
-    start_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
-    if now > start_time:
-        start_time += timedelta(days=1)
-    scheduler.add_job(send_reminder, 'interval', minutes=30, start_date=start_time)
-
-    # милые фразы по обычному графику
-    for _ in range(3):
-        hour = random.randint(9, 22)
-        minute = random.randint(0, 59)
-        scheduler.add_job(send_random_sweet_message, 'cron', hour=hour, minute=minute)
-
-    # мемы по обычному графику
-    for _ in range(2):
-        hour = random.randint(10, 22)
-        minute = random.randint(0, 59)
-        scheduler.add_job(send_random_meme, 'cron', hour=hour, minute=minute)
+    next_start = now.replace(hour=8, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    scheduler.add_job(send_reminder, 'interval', minutes=30, start_date=next_start)
 
 # ------------------- старт -------------------
 scheduler.start()
