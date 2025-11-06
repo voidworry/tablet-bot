@@ -1,4 +1,5 @@
 import telebot
+import random
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
 import os
@@ -18,7 +19,6 @@ print("token и owner_chat_id загружены успешно.")
 bot = telebot.TeleBot(TOKEN)
 scheduler = BackgroundScheduler()
 user_chat_id = None
-last_message_time = None
 
 # ------------------- контент -------------------
 sweet_messages = [
@@ -49,6 +49,29 @@ sweet_messages = [
     "🪷 я верю в тебя, всегда и во всём 🌸"
 ]
 
+memes = [
+    "https://i.yapx.ru/cEGTF.jpg",
+    "https://i.yapx.ru/cEGTH.jpg",
+    "https://i.yapx.ru/cEGTI.jpg",
+    "https://i.yapx.ru/cEGTJ.jpg",
+    "https://i.yapx.ru/cEGTK.jpg",
+    "https://i.yapx.ru/cEGTL.jpg",
+    "https://i.yapx.ru/cEGTM.jpg",
+    "https://i.yapx.ru/cEGTO.jpg",
+    "https://i.yapx.ru/cEGTP.jpg",
+    "https://i.yapx.ru/cEGTR.jpg",
+    "https://i.yapx.ru/cEGTS.jpg",
+    "https://i.yapx.ru/cEGTT.jpg",
+    "https://i.yapx.ru/cEGTU.jpg",
+    "https://i.yapx.ru/cEGTV.jpg",
+    "https://i.yapx.ru/cEGTX.jpg",
+    "https://i.yapx.ru/cEGTY.jpg",
+    "https://i.yapx.ru/cEGTa.jpg"
+]
+
+last_message_time = None
+MIN_INTERVAL = timedelta(minutes=20)  # минимум 20 минут между случайными сообщениями
+
 # ------------------- функции -------------------
 def send_reminder():
     global last_message_time
@@ -59,6 +82,24 @@ def send_reminder():
             reply_markup=reminder_keyboard()
         )
         last_message_time = datetime.now()
+
+def send_random_sweet_message(ignore_interval=False):
+    global last_message_time
+    now = datetime.now()
+    if not ignore_interval and last_message_time and (now - last_message_time) < MIN_INTERVAL:
+        return
+    if user_chat_id:
+        bot.send_message(user_chat_id, random.choice(sweet_messages))
+        last_message_time = now
+
+def send_random_meme(ignore_interval=False):
+    global last_message_time
+    now = datetime.now()
+    if not ignore_interval and last_message_time and (now - last_message_time) < MIN_INTERVAL:
+        return
+    if user_chat_id:
+        bot.send_photo(user_chat_id, random.choice(memes))
+        last_message_time = now
 
 def reminder_keyboard():
     markup = telebot.types.InlineKeyboardMarkup()
@@ -73,40 +114,75 @@ def reminder_keyboard():
 def start(message):
     global user_chat_id
     user_chat_id = message.chat.id
-    bot.send_message(
-        message.chat.id, 
-        "привет, солнышко ☀️\nя буду напоминать тебе о таблетках каждый день.\nпрости, а сегодня ты уже выпил таблетку?",
-        reply_markup=reminder_keyboard()
-    )
-    schedule_reminders_after_start()
+    bot.send_message(user_chat_id, "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊\n\nа сегодня ты уже выпил таблетку?")
+    bot.send_message(user_chat_id, "выбери, пожалуйста:", reply_markup=reminder_keyboard())
+    schedule_daily_reminders()
+
+@bot.message_handler(commands=['test'])
+def test_mode(message):
+    global user_chat_id
+    user_chat_id = message.chat.id
+    bot.send_message(user_chat_id, "🔧 запускаю тестовый режим 🔧\nнапоминания каждые 5 минут, мемы и фразы чаще, кнопки проверяемые 💕")
+
+    scheduler.remove_all_jobs()
+    now = datetime.now()
+    start_time = now.replace(minute=0, second=0, microsecond=0)
+
+    # тестовые напоминания каждые 5 минут
+    scheduler.add_job(send_reminder, 'interval', minutes=5, start_date=start_time)
+    # милые фразы каждые 2 минуты
+    scheduler.add_job(send_random_sweet_message, 'interval', minutes=2, start_date=start_time)
+    # мемы каждые 3 минуты
+    scheduler.add_job(send_random_meme, 'interval', minutes=3, start_date=start_time)
+
+    # callback для теста
+    @bot.callback_query_handler(func=lambda call: True)
+    def callback_query_test(call):
+        if call.data == "taken":
+            bot.answer_callback_query(call.id, "умничка! 🌸 тестовое напоминание вернется с начала следующего часа 💖")
+            next_hour = (datetime.now() + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+            scheduler.remove_all_jobs()
+            scheduler.add_job(send_reminder, 'interval', minutes=5, start_date=next_hour)
+            bot.send_message(OWNER_CHAT_ID, f"сашенька отметил, что выпил таблетку 💊 (тест)")
+        elif call.data == "delay":
+            bot.answer_callback_query(call.id, "окей, напомню через 10 минут 💕")
+            scheduler.add_job(send_reminder, 'date', run_date=datetime.now() + timedelta(minutes=10))
+
+    bot.send_message(user_chat_id, "✅ тестовый режим активирован, следи за уведомлениями!")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    global user_chat_id
     if call.data == "taken":
-        bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра с 8 утра 💖")
-        schedule_next_day_reminders()
-        bot.send_message(OWNER_CHAT_ID, f"Сашенька отметил, что выпил таблетку 💊")
+        bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра 💖")
+        schedule_daily_reminders()
+        bot.send_message(OWNER_CHAT_ID, f"сашенька отметил, что выпил таблетку 💊")
     elif call.data == "delay":
         bot.answer_callback_query(call.id, "окей, напомню через час 💕")
-        scheduler.remove_all_jobs()
         scheduler.add_job(send_reminder, 'date', run_date=datetime.now() + timedelta(hours=1))
 
 # ------------------- планировщик -------------------
-def schedule_reminders_after_start():
-    """напоминания каждые 30 минут после запуска бота до нажатия 'принял'"""
+def schedule_daily_reminders():
     scheduler.remove_all_jobs()
     now = datetime.now()
-    scheduler.add_job(send_reminder, 'interval', minutes=30, start_date=now)
-
-def schedule_next_day_reminders():
-    """следующие напоминания с 8 утра следующего дня"""
-    scheduler.remove_all_jobs()
-    now = datetime.now()
-    start_time = now.replace(hour=8, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    start_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
+    if now > start_time:
+        start_time += timedelta(days=1)
     scheduler.add_job(send_reminder, 'interval', minutes=30, start_date=start_time)
+
+    # милые фразы по обычному графику
+    for _ in range(3):
+        hour = random.randint(9, 22)
+        minute = random.randint(0, 59)
+        scheduler.add_job(send_random_sweet_message, 'cron', hour=hour, minute=minute)
+
+    # мемы по обычному графику
+    for _ in range(2):
+        hour = random.randint(10, 22)
+        minute = random.randint(0, 59)
+        scheduler.add_job(send_random_meme, 'cron', hour=hour, minute=minute)
 
 # ------------------- старт -------------------
 scheduler.start()
 bot.polling(none_stop=True)
+
 
