@@ -147,39 +147,40 @@ def schedule_delayed_reminder():
     scheduler.add_job(schedule_interval_reminders, 'date', run_date=run_time + timedelta(minutes=5), kwargs={'start_delay_minutes': 0})
 
 def schedule_content_messages():
-    # 🔴 ФИКС: уникальные ID с временной меткой
-    timestamp = int(time.time())
-    
-    # Очистка старых заданий
-    for i in range(10):
-        for content_type in ['sweet_message', 'meme', 'reschedule']:
-            try: 
-                scheduler.remove_job(f"{content_type}_{i}")
-            except: 
+    # 🔴 ФИКС: удаляем ВСЕ старые задания контента
+    for job in scheduler.get_jobs():
+        job_id = job.id
+        if job_id.startswith(('sweet_', 'meme_', 'reschedule_')):
+            try:
+                scheduler.remove_job(job_id)
+            except:
                 pass
     
     now = get_moscow_time()
     today = now.date()
+    timestamp = int(time.time())
     
-    # Планируем контент с уникальными ID
+    # Планируем контент с гарантированно уникальными ID
     for i in range(3):
         hour, minute = random.randint(9, 22), random.randint(0, 59)
         run_time = datetime(today.year, today.month, today.day, hour, minute, 0)
         if run_time > now:
-            job_id = f"sweet_{timestamp}_{i}"
-            scheduler.add_job(send_random_sweet_message, 'date', run_date=run_time, id=job_id)
+            # 🔴 УНИКАЛЬНЫЙ ID: sweet_таймштамп_i_рандом
+            unique_id = f"sweet_{timestamp}_{i}_{random.randint(100, 999)}"
+            scheduler.add_job(send_random_sweet_message, 'date', run_date=run_time, id=unique_id)
     
     for i in range(2):
         hour, minute = random.randint(10, 22), random.randint(0, 59)
         run_time = datetime(today.year, today.month, today.day, hour, minute, 0)
         if run_time > now:
-            job_id = f"meme_{timestamp}_{i}"
-            scheduler.add_job(send_random_meme, 'date', run_date=run_time, id=job_id)
+            # 🔴 УНИКАЛЬНЫЙ ID: meme_таймштамп_i_рандом
+            unique_id = f"meme_{timestamp}_{i}_{random.randint(100, 999)}"
+            scheduler.add_job(send_random_meme, 'date', run_date=run_time, id=unique_id)
     
-    # Автоперепланировка
+    # Автоперепланировка с уникальным ID
     tomorrow = today + timedelta(days=1)
     next_day_time = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 0, 1, 0)
-    scheduler.add_job(schedule_content_messages, 'date', run_date=next_day_time, id=f"reschedule_{timestamp}")
+    scheduler.add_job(schedule_content_messages, 'date', run_date=next_day_time, id=f"reschedule_{timestamp}_{random.randint(1000, 9999)}")
 
 # ------------------- обработчики -------------------
 @bot.message_handler(commands=['start'])
@@ -187,7 +188,6 @@ def start(message):
     global user_chat_id
     user_chat_id = message.chat.id
     
-    # 🔴 УПРОЩЕНИЕ: одно сообщение для всех случаев
     greeting = "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут 💊\n\nты уже выпил таблетку?"
     
     bot.send_message(user_chat_id, greeting, reply_markup=WELCOME_KB)
