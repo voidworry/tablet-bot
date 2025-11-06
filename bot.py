@@ -115,40 +115,7 @@ def start(message):
     global user_chat_id
     user_chat_id = message.chat.id
     bot.send_message(user_chat_id, "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊\n\nа сегодня ты уже выпил таблетку?")
-    bot.send_message(user_chat_id, "выбери, пожалуйста:", reply_markup=reminder_keyboard())
     schedule_daily_reminders()
-
-@bot.message_handler(commands=['test'])
-def test_mode(message):
-    global user_chat_id
-    user_chat_id = message.chat.id
-    bot.send_message(user_chat_id, "🔧 запускаю тестовый режим 🔧\nнапоминания каждые 5 минут, мемы и фразы чаще, кнопки проверяемые 💕")
-
-    scheduler.remove_all_jobs()
-    now = datetime.now()
-    start_time = now.replace(minute=0, second=0, microsecond=0)
-
-    # тестовые напоминания каждые 5 минут
-    scheduler.add_job(send_reminder, 'interval', minutes=5, start_date=start_time)
-    # милые фразы каждые 2 минуты
-    scheduler.add_job(send_random_sweet_message, 'interval', minutes=2, start_date=start_time)
-    # мемы каждые 3 минуты
-    scheduler.add_job(send_random_meme, 'interval', minutes=3, start_date=start_time)
-
-    # callback для теста
-    @bot.callback_query_handler(func=lambda call: True)
-    def callback_query_test(call):
-        if call.data == "taken":
-            bot.answer_callback_query(call.id, "умничка! 🌸 тестовое напоминание вернется с начала следующего часа 💖")
-            next_hour = (datetime.now() + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-            scheduler.remove_all_jobs()
-            scheduler.add_job(send_reminder, 'interval', minutes=5, start_date=next_hour)
-            bot.send_message(OWNER_CHAT_ID, f"сашенька отметил, что выпил таблетку 💊 (тест)")
-        elif call.data == "delay":
-            bot.answer_callback_query(call.id, "окей, напомню через 10 минут 💕")
-            scheduler.add_job(send_reminder, 'date', run_date=datetime.now() + timedelta(minutes=10))
-
-    bot.send_message(user_chat_id, "✅ тестовый режим активирован, следи за уведомлениями!")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
