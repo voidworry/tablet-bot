@@ -19,12 +19,11 @@ if not TOKEN or not OWNER_CHAT_ID:
 
 OWNER_CHAT_ID = int(OWNER_CHAT_ID)
 
-# 🔴 ОПТИМИЗАЦИЯ: быстрый бот с многопоточностью
 bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=5)
 scheduler = BackgroundScheduler()
 user_chat_id = None
 
-# ------------------- контент (предзагружен) -------------------
+# ------------------- контент -------------------
 SWEET_MESSAGES = [
     "💖 напоминаю, я тебя люблю ❣️",
     "🐾 ты у меня самый замечательный ✨",
@@ -71,7 +70,7 @@ MEMES = [
     "https://i.yapx.ru/cEGTX.jpg",
 ]
 
-# 🔴 ОПТИМИЗАЦИЯ: предсозданные клавиатуры
+# Предсозданные клавиатуры
 WELCOME_KB = telebot.types.InlineKeyboardMarkup()
 WELCOME_KB.add(
     telebot.types.InlineKeyboardButton("💚 уже принял", callback_data="already_taken"),
@@ -86,9 +85,9 @@ REMINDER_KB.add(
 
 last_message_time = None
 
-# ------------------- оптимизированные функции -------------------
+# ------------------- функции -------------------
 def get_moscow_time():
-    return datetime.now() + timedelta(hours=3)  # UTC+3
+    return datetime.now() + timedelta(hours=3)
 
 def send_reminder():
     global last_message_time
@@ -113,13 +112,16 @@ def send_random_meme():
             bot.send_photo(user_chat_id, random.choice(MEMES))
             last_message_time = get_moscow_time()
         except:
-            try: bot.send_message(user_chat_id, "📸 мысленный мем для тебя! 😊")
+            try: 
+                bot.send_message(user_chat_id, "📸 мысленный мем для тебя! 😊")
             except: pass
 
 def remove_reminder_jobs():
     for job_id in ["interval_reminder", "delayed_reminder", "first_reminder"]:
-        try: scheduler.remove_job(job_id)
-        except: pass
+        try: 
+            scheduler.remove_job(job_id)
+        except: 
+            pass
 
 def schedule_interval_reminders(start_delay_minutes=0):
     remove_reminder_jobs()
@@ -145,32 +147,39 @@ def schedule_delayed_reminder():
     scheduler.add_job(schedule_interval_reminders, 'date', run_date=run_time + timedelta(minutes=5), kwargs={'start_delay_minutes': 0})
 
 def schedule_content_messages():
-    # Быстрая очистка
-    for i in range(5):
-        for content_type in ['sweet_message', 'meme']:
-            try: scheduler.remove_job(f"{content_type}_{i}")
-            except: pass
+    # 🔴 ФИКС: уникальные ID с временной меткой
+    timestamp = int(time.time())
+    
+    # Очистка старых заданий
+    for i in range(10):
+        for content_type in ['sweet_message', 'meme', 'reschedule']:
+            try: 
+                scheduler.remove_job(f"{content_type}_{i}")
+            except: 
+                pass
     
     now = get_moscow_time()
     today = now.date()
     
-    # Планируем контент на сегодня
-    for i in range(3):  # 3 сообщения
+    # Планируем контент с уникальными ID
+    for i in range(3):
         hour, minute = random.randint(9, 22), random.randint(0, 59)
         run_time = datetime(today.year, today.month, today.day, hour, minute, 0)
         if run_time > now:
-            scheduler.add_job(send_random_sweet_message, 'date', run_date=run_time, id=f"sweet_message_{i}")
+            job_id = f"sweet_{timestamp}_{i}"
+            scheduler.add_job(send_random_sweet_message, 'date', run_date=run_time, id=job_id)
     
-    for i in range(2):  # 2 мема
+    for i in range(2):
         hour, minute = random.randint(10, 22), random.randint(0, 59)
         run_time = datetime(today.year, today.month, today.day, hour, minute, 0)
         if run_time > now:
-            scheduler.add_job(send_random_meme, 'date', run_date=run_time, id=f"meme_{i}")
+            job_id = f"meme_{timestamp}_{i}"
+            scheduler.add_job(send_random_meme, 'date', run_date=run_time, id=job_id)
     
-    # Автоперепланировка на завтра
+    # Автоперепланировка
     tomorrow = today + timedelta(days=1)
     next_day_time = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 0, 1, 0)
-    scheduler.add_job(schedule_content_messages, 'date', run_date=next_day_time, id="reschedule_content")
+    scheduler.add_job(schedule_content_messages, 'date', run_date=next_day_time, id=f"reschedule_{timestamp}")
 
 # ------------------- обработчики -------------------
 @bot.message_handler(commands=['start'])
@@ -178,8 +187,8 @@ def start(message):
     global user_chat_id
     user_chat_id = message.chat.id
     
-    now = get_moscow_time()
-    greeting = "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊\n\nты уже выпил таблетку?" if now.hour >= 8 else "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут 💊\n\nты уже выпил сегодняшнюю таблетку?"
+    # 🔴 УПРОЩЕНИЕ: одно сообщение для всех случаев
+    greeting = "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут 💊\n\nты уже выпил таблетку?"
     
     bot.send_message(user_chat_id, greeting, reply_markup=WELCOME_KB)
     schedule_content_messages()
@@ -211,7 +220,8 @@ def callback_query(call):
             bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
             bot.send_message(call.message.chat.id, "🕒 напомню через час 💕")
             schedule_delayed_reminder()
-    except: pass
+    except: 
+        pass
 
 # ------------------- команды для отладки -------------------
 @bot.message_handler(commands=['ping'])
@@ -234,7 +244,7 @@ def test_message(message):
 def show_jobs(message):
     jobs = scheduler.get_jobs()
     job_info = f"Активных заданий: {len(jobs)}\n"
-    for job in jobs[:5]:  # Показываем только первые 5
+    for job in jobs[:5]:
         job_info += f"• {job.id}\n"
     bot.send_message(message.chat.id, job_info)
 
@@ -257,14 +267,22 @@ def restart_bot(message):
 # ------------------- эхо -------------------
 @bot.message_handler(func=lambda message: True)
 def playful_echo(message):
-    if message.text.startswith("/"): return
+    if message.text.startswith("/"): 
+        return
+    
+    playful_suffixes = [" 😜", " 🤭", " 🐾", " ✨", " 💖", " 🌸"]
+    playful_prefixes = ["о, ", "ага, ", "ммм, ", "эй, "]
+    
+    prefix = random.choice(playful_prefixes) if random.random() < 0.5 else ""
+    suffix = random.choice(playful_suffixes) if random.random() < 0.7 else ""
     
     text = message.text
-    if random.random() < 0.3: text = text.upper()
-    elif random.random() < 0.3: text = text + "..."
+    if random.random() < 0.3: 
+        text = text.upper()
+    elif random.random() < 0.3: 
+        text = text + "..."
     
-    suffix = random.choice([" 😜", " 🤭", " 🐾", " ✨", " 💖", " 🌸"])
-    bot.send_message(message.chat.id, f"{text}{suffix}")
+    bot.send_message(message.chat.id, f"{prefix}{text}{suffix}")
 
 # ------------------- старт -------------------
 if __name__ == "__main__":
