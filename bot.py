@@ -31,17 +31,52 @@ sweet_messages = [
     "💖 напоминаю, я тебя люблю ❣️",
     "🐾 ты у меня самый замечательный ✨",
     "☀️ горжусь тобой, что заботишься о себе 🌸",
-    # ... остальные сообщения
+    "🧸 надеюсь, ты чувствуешь себя хорошо >.<",
+    "🌼 твоя забота о себе делает мой день лучше 🌷",
+    "💛 ты самый смелый и сильный ⭐️",
+    "🌸 моё сердце радуется, когда думаю о тебе 🫶",
+    "🐱 не забывай улыбаться, ты чудо ❣️",
+    "✨ каждый день с тобой особенный 🌟",
+    "💐 ты заслуживаешь только счастья 🍀",
+    "🌞 твоя энергия делает мир ярче ☀️",
+    "🫂 помни, я всегда рядом мысленно с тобой 💫",
+    "💌 ты делаешь меня счастливой просто своим существованием 🐾",
+    "🎀 ты — моя радость и вдохновение 🌸",
+    "🥰 я горжусь тобой за каждое маленькое усилие ✨",
+    "💫 ты такой уникальный, что словами не описать ❣️",
+    "🌷 твоя доброта делает мир лучше 🐱",
+    "💭 думаю о тебе и улыбаюсь 🌸",
+    "🧡 ты наполняешь мой день теплом 🌞",
+    "🐝 ты - моё счастье ⭐️",
+    "🍀 желаю тебе сегодня только удачи и радости ✨",
+    "🎶 ты сводишь меня с ума 🐾",
+    "💎 ты - моё сокровище ❣️",
+    "🌹 твоя улыбка — лучик солнца ☀️",
+    "🪷 я верю в тебя, всегда и во всём 🌸"
 ]
 
 memes = [
     "https://i.yapx.ru/cEGTF.jpg",
     "https://i.yapx.ru/cEGTH.jpg",
-    # ... остальные мемы
+    "https://i.yapx.ru/cEGTI.jpg",
+    "https://i.yapx.ru/cEGTJ.jpg",
+    "https://i.yapx.ru/cEGTK.jpg",
+    "https://i.yapx.ru/cEGTL.jpg",
+    "https://i.yapx.ru/cEGTM.jpg",
+    "https://i.yapx.ru/cEGTO.jpg",
+    "https://i.yapx.ru/cEGTP.jpg",
+    "https://i.yapx.ru/cEGTR.jpg",
+    "https://i.yapx.ru/cEGTS.jpg",
+    "https://i.yapx.ru/cEGTT.jpg",
+    "https://i.yapx.ru/cEGTU.jpg",
+    "https://i.yapx.ru/cEGTV.jpg",
+    "https://i.yapx.ru/cEGTX.jpg",
+    "https://i.yapx.ru/cEGTY.jpg",
+    "https://i.yapx.ru/cEGTa.jpg"
 ]
 
 last_message_time = None
-MIN_INTERVAL = timedelta(minutes=20)
+MIN_INTERVAL = timedelta(minutes=20)  # минимум 20 минут между случайными сообщениями
 
 # ------------------- функции -------------------
 def send_reminder():
@@ -58,35 +93,47 @@ def send_reminder():
         except Exception as e:
             logger.error(f"Ошибка отправки напоминания: {e}")
 
-def send_random_sweet_message():
+def send_random_sweet_message(ignore_interval=False):
     global last_message_time
     now = datetime.now()
-    if last_message_time and (now - last_message_time) < MIN_INTERVAL:
+    if not ignore_interval and last_message_time and (now - last_message_time) < MIN_INTERVAL:
         return
     if user_chat_id:
         logger.info("Отправка милого сообщения")
         try:
-            message = random.choice(sweet_messages)
-            bot.send_message(user_chat_id, message)
+            bot.send_message(user_chat_id, random.choice(sweet_messages))
             last_message_time = now
         except Exception as e:
             logger.error(f"Ошибка отправки милого сообщения: {e}")
 
-def send_random_meme():
+def send_random_meme(ignore_interval=False):
     global last_message_time
     now = datetime.now()
-    if last_message_time and (now - last_message_time) < MIN_INTERVAL:
+    if not ignore_interval and last_message_time and (now - last_message_time) < MIN_INTERVAL:
         return
     if user_chat_id:
         logger.info("Отправка мема")
         try:
-            meme_url = random.choice(memes)
-            bot.send_photo(user_chat_id, meme_url)
+            bot.send_photo(user_chat_id, random.choice(memes))
             last_message_time = now
         except Exception as e:
             logger.error(f"Ошибка отправки мема: {e}")
+            try:
+                bot.send_message(user_chat_id, "📸 не получилось отправить мем, но вот мысленный мем для тебя! 😊")
+            except Exception as e2:
+                logger.error(f"Ошибка отправки запасного сообщения: {e2}")
+
+def welcome_keyboard():
+    """Клавиатура для приветственного сообщения"""
+    markup = telebot.types.InlineKeyboardMarkup()
+    markup.add(
+        telebot.types.InlineKeyboardButton("💚 уже принял", callback_data="already_taken"),
+        telebot.types.InlineKeyboardButton("💊 еще нет", callback_data="not_yet")
+    )
+    return markup
 
 def reminder_keyboard():
+    """Клавиатура для обычного напоминания"""
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("💚 принял", callback_data="taken"),
@@ -96,7 +143,7 @@ def reminder_keyboard():
 
 def remove_reminder_jobs():
     """Удаляем только задания напоминаний"""
-    for job_id in ["interval_reminder", "delayed_reminder", "first_reminder_today", "restart_intervals_after_delay"]:
+    for job_id in ["interval_reminder", "delayed_reminder", "first_reminder", "restart_intervals_after_delay"]:
         try:
             scheduler.remove_job(job_id)
         except:
@@ -109,13 +156,13 @@ def schedule_interval_reminders(start_delay_minutes=0):
     now = datetime.now()
     
     if start_delay_minutes > 0:
-        # Если указана задержка (например, после "принял")
+        # Если указана задержка
         start_time = now + timedelta(minutes=start_delay_minutes)
     else:
         # Определяем время первого напоминания
         if now.hour >= 8:
-            # Если уже после 8 утра - начинаем СЕЙЧАС
-            start_time = now
+            # Если уже после 8 утра - начинаем через 30 минут
+            start_time = now + timedelta(minutes=30)
         else:
             # Если до 8 утра - начинаем в 8:00
             start_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
@@ -129,17 +176,29 @@ def schedule_interval_reminders(start_delay_minutes=0):
         start_date=start_time,
         id="interval_reminder"
     )
+
+def schedule_first_reminder():
+    """Планируем первое напоминание через 30 минут"""
+    remove_reminder_jobs()
     
-    # 🔴 ВАЖНО: если первый запуск после 8 утра, отправляем напоминание сразу
-    if start_delay_minutes == 0 and now.hour >= 8:
-        # Запланируем первое напоминание через 10 секунд
-        scheduler.add_job(
-            send_reminder,
-            'date',
-            run_date=now + timedelta(seconds=10),
-            id="first_reminder_today"
-        )
-        logger.info("Добавлено первое напоминание сегодня")
+    run_time = datetime.now() + timedelta(minutes=30)
+    scheduler.add_job(
+        send_reminder,
+        'date',
+        run_date=run_time,
+        id="first_reminder"
+    )
+    
+    # После первого напоминания запускаем интервальные
+    scheduler.add_job(
+        schedule_interval_reminders,
+        'date',
+        run_date=run_time + timedelta(minutes=5),
+        kwargs={'start_delay_minutes': 0},
+        id="start_interval_after_first"
+    )
+    
+    logger.info(f"Первое напоминание запланировано на {run_time}")
 
 def schedule_delayed_reminder():
     """Планируем одно отложенное напоминание и затем снова интервальные"""
@@ -194,6 +253,7 @@ def schedule_content_messages():
             run_date=run_time,
             id=f"sweet_message_{i}"
         )
+        logger.info(f"Запланировано милое сообщение {i+1} на {run_time}")
     
     # Планируем 2 мема в случайное время с 10 до 22
     for i in range(2):
@@ -201,6 +261,7 @@ def schedule_content_messages():
         minute = random.randint(0, 59)
         run_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
         
+        # Если время уже прошло сегодня, планируем на завтра
         if run_time < now:
             run_time += timedelta(days=1)
         
@@ -210,6 +271,7 @@ def schedule_content_messages():
             run_date=run_time,
             id=f"meme_{i}"
         )
+        logger.info(f"Запланирован мем {i+1} на {run_time}")
 
 # ------------------- обработчики -------------------
 @bot.message_handler(commands=['start'])
@@ -221,20 +283,43 @@ def start(message):
     # Определяем какое сообщение показать в зависимости от времени
     now = datetime.now()
     if now.hour >= 8:
-        greeting = "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут начиная с сегодняшнего дня 💊\n\nты уже выпил сегодняшнюю таблетку?"
+        greeting = "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут 💊\n\nты уже выпил сегодняшнюю таблетку?"
     else:
         greeting = "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊\n\nты уже выпил таблетку?"
     
-    bot.send_message(user_chat_id, greeting, reply_markup=reminder_keyboard())
+    bot.send_message(user_chat_id, greeting, reply_markup=welcome_keyboard())
     
-    schedule_interval_reminders()
+    # Пока не планируем напоминания - ждем ответ пользователя
     schedule_content_messages()
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     logger.info(f"Обработка callback: {call.data}")
     
-    if call.data == "taken":
+    if call.data == "already_taken":
+        bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра 💖")
+        bot.edit_message_reply_markup(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=None
+        )
+        # Переносим напоминания на завтра в 8 утра
+        schedule_interval_reminders(start_delay_minutes=24*60)
+        bot.send_message(user_chat_id, "отлично! 💚 напоминания возобновятся завтра с 8 утра 🌞")
+        bot.send_message(OWNER_CHAT_ID, f"сашенька отметил, что выпил таблетку 💊")
+
+    elif call.data == "not_yet":
+        bot.answer_callback_query(call.id, "хорошо, напомню через полчаса 💕")
+        bot.edit_message_reply_markup(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=None
+        )
+        # Планируем первое напоминание через 30 минут
+        schedule_first_reminder()
+        bot.send_message(user_chat_id, "хорошо 💊 напомню тебе про таблетку через полчаса! 🌸")
+
+    elif call.data == "taken":
         bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра 💖")
         bot.edit_message_reply_markup(
             chat_id=call.message.chat.id,
@@ -254,9 +339,99 @@ def callback_query(call):
         )
         schedule_delayed_reminder()
 
-# ------------------- остальные функции без изменений -------------------
-# ... (команды для управления, эхо-функция и т.д.)
+# ------------------- команды для управления -------------------
+@bot.message_handler(commands=['test_meme'])
+def test_meme(message):
+    """Принудительная отправка мема для тестирования"""
+    send_random_meme(ignore_interval=True)
 
+@bot.message_handler(commands=['test_message'])
+def test_message(message):
+    """Принудительная отправка милого сообщения для тестирования"""
+    send_random_sweet_message(ignore_interval=True)
+
+@bot.message_handler(commands=['test_reminder'])
+def test_reminder(message):
+    """Принудительная отправка напоминания для тестирования"""
+    send_reminder()
+
+@bot.message_handler(commands=['jobs'])
+def show_jobs(message):
+    """Показать активные задания"""
+    jobs = scheduler.get_jobs()
+    job_info = "Активные задания:\n\n"
+    for job in jobs:
+        job_info += f"• {job.id} - {job.next_run_time}\n"
+    bot.send_message(message.chat.id, job_info)
+    logger.info(f"Пользователю отправлена информация о {len(jobs)} заданиях")
+
+@bot.message_handler(commands=['restart'])
+def restart_bot(message):
+    """Перезапустить планировщик"""
+    scheduler.remove_all_jobs()
+    schedule_content_messages()
+    bot.send_message(message.chat.id, "Планировщик перезапущен! 🌸")
+    # Перезапускаем с приветственным сообщением
+    start(message)
+
+@bot.message_handler(commands=['debug'])
+def debug_info(message):
+    """Отладочная информация"""
+    global user_chat_id, last_message_time
+    debug_text = f"""
+🔧 Отладочная информация:
+• User ID: {user_chat_id}
+• Время: {datetime.now()}
+• Последнее сообщение: {last_message_time}
+• Активных заданий: {len(scheduler.get_jobs())}
+• Владелец: {OWNER_CHAT_ID}
+    """
+    bot.send_message(message.chat.id, debug_text)
+
+@bot.message_handler(commands=['clear_jobs'])
+def clear_jobs(message):
+    """Очистить все задания"""
+    scheduler.remove_all_jobs()
+    bot.send_message(message.chat.id, "Все задания очищены! 🧹")
+
+@bot.message_handler(commands=['status'])
+def status(message):
+    """Текущий статус бота"""
+    jobs = scheduler.get_jobs()
+    reminder_jobs = [job for job in jobs if 'reminder' in job.id]
+    content_jobs = [job for job in jobs if 'message' in job.id or 'meme' in job.id]
+    
+    status_text = f"""
+📊 Статус бота:
+• Напоминания: {len(reminder_jobs)} заданий
+• Контент: {len(content_jobs)} заданий
+• Всего: {len(jobs)} заданий
+• Пользователь: {'подключен' if user_chat_id else 'не подключен'}
+    """
+    bot.send_message(message.chat.id, status_text)
+
+# ------------------- эхо -------------------
+@bot.message_handler(func=lambda message: True)
+def playful_echo(message):
+    """Если сообщение не команда, бот повторяет его с юмором и смайликами"""
+    if message.text.startswith("/"):
+        return
+
+    playful_suffixes = [" 😜", " 🤭", " 🐾", "✨", "😂", "💖", "🤪", "🌸", "🐱"]
+    playful_prefixes = ["о, ", "ага, ", "ммм, ", "эй, "]
+
+    prefix = random.choice(playful_prefixes) if random.random() < 0.5 else ""
+    suffix = random.choice(playful_suffixes) if random.random() < 0.7 else ""
+
+    text = message.text
+    if random.random() < 0.3:
+        text = text.upper()
+    elif random.random() < 0.3:
+        text = text + "..."
+
+    bot.send_message(message.chat.id, f"{prefix}{text}{suffix}")
+
+# ------------------- старт -------------------
 if __name__ == "__main__":
     scheduler.start()
     logger.info("Планировщик запущен")
