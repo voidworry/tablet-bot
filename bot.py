@@ -158,37 +158,39 @@ def start_reminder_system():
     logger.info(f"Система напоминаний запущена, первое напоминание в {start_time}")
 
 def remove_reminder_jobs():
-    """Удаляем ВСЕ задания напоминаний"""
-    reminder_job_ids = ["interval_reminder", "delayed_reminder", "start_tomorrow"]
+    """Удаляем ВСЕ задания напоминаний, но НЕ контент"""
+    reminder_job_ids = ["interval_reminder", "delayed_reminder", "start_tomorrow", "resume_after_delay"]
     for job_id in reminder_job_ids:
         try:
             scheduler.remove_job(job_id)
         except:
             pass
     
-    # Также удаляем все задания, содержащие "reminder" в названии
+    # Также удаляем все задания, содержащие "reminder" в названии, но не контент
     for job in scheduler.get_jobs():
-        if 'reminder' in job.id:
+        if 'reminder' in job.id and 'content' not in job.id:
             try:
                 scheduler.remove_job(job.id)
             except:
                 pass
 
 def schedule_delayed_reminder():
-    """Отложенное напоминание через час"""
+    """Отложенное напоминание через час с последующим возвратом к интервальным"""
     remove_reminder_jobs()
     
     run_time = get_moscow_time() + timedelta(hours=1)
     scheduler.add_job(send_reminder, 'date', run_date=run_time, id="delayed_reminder")
     
-    # Через час после отложенного напоминания возвращаем обычный режим
+    # Через 5 минут после отложенного напоминания запускаем обычные интервальные
+    # на случай, если пользователь не ответит на отложенное напоминание
     scheduler.add_job(
         start_reminder_system,
         'date', 
-        run_date=run_time + timedelta(minutes=5)
+        run_date=run_time + timedelta(minutes=5),
+        id="resume_after_delay"
     )
     
-    logger.info(f"Напоминание отложено до {run_time}")
+    logger.info(f"Напоминание отложено до {run_time}, интервальные возобновятся через 1ч 5м")
 
 def schedule_daily_content():
     """Планируем ежедневный контент"""
@@ -256,6 +258,13 @@ def callback_query(call):
 
     if call.data in responses:
         response, action = responses[call.data]
+        
+        # ВАЖНО: Удаляем задание resume_after_delay при ЛЮБОМ ответе пользователя
+        # чтобы избежать дублирования напоминаний
+        try:
+            scheduler.remove_job("resume_after_delay")
+        except:
+            pass
         
         # Выполняем соответствующее действие
         if action == "stop_until_tomorrow":
