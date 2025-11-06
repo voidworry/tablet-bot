@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import os
 import logging
 import requests
-from zoneinfo import ZoneInfo  # 🔴 ВСТРОЕННАЯ БИБЛИОТЕКА (Python 3.9+)
+from zoneinfo import ZoneInfo
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,11 +23,9 @@ if not OWNER_CHAT_ID:
 OWNER_CHAT_ID = int(OWNER_CHAT_ID)
 print("token и owner_chat_id загружены успешно.")
 
-# 🔴 УКАЗЫВАЕМ МОСКОВСКИЙ ЧАСОВОЙ ПОЯС (встроенными средствами)
 try:
     MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 except:
-    # Если zoneinfo не доступен, используем UTC+3
     logger.warning("ZoneInfo не доступен, используем UTC+3")
     MOSCOW_TZ = None
 
@@ -81,7 +79,33 @@ memes = [
     "https://i.yapx.ru/cEGTV.jpg",
     "https://i.yapx.ru/cEGTX.jpg",
     "https://i.yapx.ru/cEGTY.jpg",
-    "https://i.yapx.ru/cEGTa.jpg"
+    "https://i.yapx.ru/cEGTa.jpg",
+    "https://i.yapx.ru/cEPww.jpg",
+    "https://i.yapx.ru/cEPwz.jpg",
+    "https://i.yapx.ru/cEPw5.jpg",
+    "https://i.yapx.ru/cEPw8.jpg",
+    "https://i.yapx.ru/cEPyA.jpg",
+    "https://i.yapx.ru/cEPyC.jpg",
+    "https://i.yapx.ru/cEPyE.jpg",
+    "https://i.yapx.ru/cEPyH.jpg",
+    "https://i.yapx.ru/cEPyO.jpg",
+    "https://i.yapx.ru/cEPyR.jpg",
+    "https://i.yapx.ru/cEPyT.jpg",
+    "https://i.yapx.ru/cEPyU.jpg",
+    "https://i.yapx.ru/cEPyW.jpg",
+    "https://i.yapx.ru/cEPyY.jpg",
+    "https://i.yapx.ru/cEPyZ.jpg",
+    "https://i.yapx.ru/cEPyc.jpg",
+    "https://i.yapx.ru/cEPyd.jpg",
+    "https://i.yapx.ru/cEPyf.jpg",
+    "https://i.yapx.ru/cEPyi.jpg",
+    "https://i.yapx.ru/cEPyn.jpg",
+    "https://i.yapx.ru/cEPyw.jpg",
+    "https://i.yapx.ru/cEPyy.jpg",
+    "https://i.yapx.ru/cEPyz.jpg",
+    "https://i.yapx.ru/cEPy1.jpg",
+    "https://i.yapx.ru/cEPy4.jpg",
+    "https://i.yapx.ru/cEPy6.jpg"
 ]
 
 last_message_time = None
@@ -145,7 +169,7 @@ def welcome_keyboard():
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("💚 уже принял", callback_data="already_taken"),
-        telebot.types.InlineKeyboardButton("🤔 еще нет", callback_data="not_yet")
+        telebot.types.InlineKeyboardButton("💊 еще нет", callback_data="not_yet")
     )
     return markup
 
@@ -244,7 +268,7 @@ def schedule_delayed_reminder():
     logger.info(f"Отложенное напоминание на {run_time}, затем интервальные")
 
 def schedule_content_messages():
-    """Планируем мемы и милые сообщения на день"""
+    """Планируем мемы и милые сообщения на ТЕКУЩИЙ день"""
     # Удаляем старые задания контента
     for i in range(10):
         for content_type in ['sweet_message', 'meme']:
@@ -254,17 +278,26 @@ def schedule_content_messages():
                 pass
     
     now = get_moscow_time()  # 🔴 МОСКОВСКОЕ ВРЕМЯ
-    logger.info(f"Планирование контента на день")
+    logger.info(f"🔄 Планирование контента на СЕГОДНЯ: {now.date()}")
     
-    # Планируем 3 милых сообщения в случайное время с 9 до 22
+    # 🔴 ВАЖНО: планируем только на СЕГОДНЯ
+    today = now.date()
+    
+    # Планируем 3 милых сообщения в случайное время с 9 до 22 СЕГОДНЯ
+    scheduled_messages = 0
     for i in range(3):
         hour = random.randint(9, 22)
         minute = random.randint(0, 59)
-        run_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
         
-        # Если время уже прошло сегодня, планируем на завтра
+        # Создаем время СЕГОДНЯ
+        run_time = datetime.combine(today, datetime.min.time()).replace(
+            hour=hour, minute=minute, second=0, microsecond=0
+        )
+        
+        # Если время уже прошло сегодня, пропускаем (не планируем на завтра)
         if run_time < now:
-            run_time += timedelta(days=1)
+            logger.info(f"⏰ Время для милого сообщения {i+1} уже прошло, пропускаем")
+            continue
         
         scheduler.add_job(
             send_random_sweet_message, 
@@ -272,17 +305,24 @@ def schedule_content_messages():
             run_date=run_time,
             id=f"sweet_message_{i}"
         )
-        logger.info(f"Запланировано милое сообщение {i+1} на {run_time}")
+        scheduled_messages += 1
+        logger.info(f"💝 Запланировано милое сообщение {i+1} на {run_time}")
     
-    # Планируем 2 мема в случайное время с 10 до 22
+    # Планируем 2 мема в случайное время с 10 до 22 СЕГОДНЯ
+    scheduled_memes = 0
     for i in range(2):
         hour = random.randint(10, 22)
         minute = random.randint(0, 59)
-        run_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
         
-        # Если время уже прошло сегодня, планируем на завтра
+        # Создаем время СЕГОДНЯ
+        run_time = datetime.combine(today, datetime.min.time()).replace(
+            hour=hour, minute=minute, second=0, microsecond=0
+        )
+        
+        # Если время уже прошло сегодня, пропускаем (не планируем на завтра)
         if run_time < now:
-            run_time += timedelta(days=1)
+            logger.info(f"⏰ Время для мема {i+1} уже прошло, пропускаем")
+            continue
         
         scheduler.add_job(
             send_random_meme, 
@@ -290,7 +330,22 @@ def schedule_content_messages():
             run_date=run_time,
             id=f"meme_{i}"
         )
-        logger.info(f"Запланирован мем {i+1} на {run_time}")
+        scheduled_memes += 1
+        logger.info(f"📸 Запланирован мем {i+1} на {run_time}")
+    
+    logger.info(f"✅ На сегодня запланировано: {scheduled_messages} сообщений, {scheduled_memes} мемов")
+    
+    # 🔴 ДОБАВЛЯЕМ: планируем перепланировку контента на СЛЕДУЮЩИЙ день в 00:01
+    tomorrow = today + timedelta(days=1)
+    next_day_time = datetime.combine(tomorrow, datetime.min.time()).replace(hour=0, minute=1, second=0)
+    
+    scheduler.add_job(
+        schedule_content_messages,
+        'date',
+        run_date=next_day_time,
+        id="reschedule_content"
+    )
+    logger.info(f"🔄 Перепланировка контента на следующий день запланирована на {next_day_time}")
 
 # ------------------- обработчики -------------------
 @bot.message_handler(commands=['start'])
@@ -324,7 +379,8 @@ def callback_query(call):
         )
         # Переносим напоминания на завтра в 8 утра
         schedule_interval_reminders(start_delay_minutes=24*60)
-        bot.send_message(user_chat_id, "отлично! 💚 напоминания возобновятся завтра с 8 утра 🌞")
+        # 🔴 ДОБАВЛЯЕМ СООБЩЕНИЕ-ПОДТВЕРЖДЕНИЕ
+        bot.send_message(call.message.chat.id, "💚 умничка! 🌸 напоминания вернутся завтра в 8 утра 💖")
         bot.send_message(OWNER_CHAT_ID, f"сашенька отметил, что выпил таблетку 💊")
 
     elif call.data == "not_yet":
@@ -336,7 +392,8 @@ def callback_query(call):
         )
         # Планируем первое напоминание через 30 минут
         schedule_first_reminder()
-        bot.send_message(user_chat_id, "хорошо 😽 напомню тебе про таблетку через полчаса! 🌸")
+        # 🔴 ДОБАВЛЯЕМ СООБЩЕНИЕ-ПОДТВЕРЖДЕНИЕ
+        bot.send_message(call.message.chat.id, "💊 хорошо! напомню тебе про таблетку через полчаса! 🌸")
 
     elif call.data == "taken":
         bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра 💖")
@@ -347,6 +404,8 @@ def callback_query(call):
         )
         # Переносим напоминания на завтра в 8 утра
         schedule_interval_reminders(start_delay_minutes=24*60)
+        # 🔴 ДОБАВЛЯЕМ СООБЩЕНИЕ-ПОДТВЕРЖДЕНИЕ
+        bot.send_message(call.message.chat.id, "💚 умничка! 🌸 напоминания вернутся завтра в 8 утра 💖")
         bot.send_message(OWNER_CHAT_ID, f"сашенька отметил, что выпил таблетку 💊")
 
     elif call.data == "delay":
@@ -356,6 +415,8 @@ def callback_query(call):
             message_id=call.message.message_id,
             reply_markup=None
         )
+        # 🔴 ДОБАВЛЯЕМ СООБЩЕНИЕ-ПОДТВЕРЖДЕНИЕ
+        bot.send_message(call.message.chat.id, "🕒 окей, напомню через час 💕")
         schedule_delayed_reminder()
 
 # ------------------- команды для управления -------------------
@@ -439,6 +500,12 @@ def show_time(message):
     """Показать текущее московское время"""
     now = get_moscow_time()
     bot.send_message(message.chat.id, f"🕐 Текущее время в Москве: {now.strftime('%H:%M:%S %d.%m.%Y')}")
+
+@bot.message_handler(commands=['force_reschedule'])
+def force_reschedule(message):
+    """Принудительно перепланировать контент на сегодня"""
+    schedule_content_messages()
+    bot.send_message(message.chat.id, "🔄 Контент перепланирован на сегодня!")
 
 # ------------------- эхо -------------------
 @bot.message_handler(func=lambda message: True)
