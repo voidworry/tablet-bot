@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import os
 import logging
 import requests
-import pytz  # 🔴 ДОБАВЛЯЕМ БИБЛИОТЕКУ ДЛЯ ЧАСОВЫХ ПОЯСОВ
+from zoneinfo import ZoneInfo  # 🔴 ВСТРОЕННАЯ БИБЛИОТЕКА (Python 3.9+)
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,11 +23,16 @@ if not OWNER_CHAT_ID:
 OWNER_CHAT_ID = int(OWNER_CHAT_ID)
 print("token и owner_chat_id загружены успешно.")
 
-# 🔴 УКАЗЫВАЕМ МОСКОВСКИЙ ЧАСОВОЙ ПОЯС
-MOSCOW_TZ = pytz.timezone('Europe/Moscow')
+# 🔴 УКАЗЫВАЕМ МОСКОВСКИЙ ЧАСОВОЙ ПОЯС (встроенными средствами)
+try:
+    MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+except:
+    # Если zoneinfo не доступен, используем UTC+3
+    logger.warning("ZoneInfo не доступен, используем UTC+3")
+    MOSCOW_TZ = None
 
 bot = telebot.TeleBot(TOKEN)
-scheduler = BackgroundScheduler(timezone=MOSCOW_TZ)  # 🔴 УКАЗЫВАЕМ ТАЙМЗОНУ ДЛЯ ПЛАНИРОВЩИКА
+scheduler = BackgroundScheduler(timezone=MOSCOW_TZ) if MOSCOW_TZ else BackgroundScheduler()
 user_chat_id = None
 
 # ------------------- контент -------------------
@@ -85,7 +90,11 @@ MIN_INTERVAL = timedelta(minutes=20)  # минимум 20 минут между 
 # ------------------- функции -------------------
 def get_moscow_time():
     """🔴 ПОЛУЧАЕМ ТЕКУЩЕЕ ВРЕМЯ В МОСКВЕ"""
-    return datetime.now(MOSCOW_TZ)
+    if MOSCOW_TZ:
+        return datetime.now(MOSCOW_TZ)
+    else:
+        # Если нет zoneinfo, используем UTC+3 вручную
+        return datetime.utcnow() + timedelta(hours=3)
 
 def send_reminder():
     global last_message_time
@@ -136,7 +145,7 @@ def welcome_keyboard():
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("💚 уже принял", callback_data="already_taken"),
-        telebot.types.InlineKeyboardButton("💊 еще нет", callback_data="not_yet")
+        telebot.types.InlineKeyboardButton("🤔 еще нет", callback_data="not_yet")
     )
     return markup
 
@@ -327,7 +336,7 @@ def callback_query(call):
         )
         # Планируем первое напоминание через 30 минут
         schedule_first_reminder()
-        bot.send_message(user_chat_id, "хорошо 💊 напомню тебе про таблетку через полчаса! 🌸")
+        bot.send_message(user_chat_id, "хорошо 😽 напомню тебе про таблетку через полчаса! 🌸")
 
     elif call.data == "taken":
         bot.answer_callback_query(call.id, "умничка! 🌸 напоминания вернутся завтра 💖")
@@ -389,6 +398,8 @@ def debug_info(message):
     """Отладочная информация"""
     global user_chat_id, last_message_time
     now = get_moscow_time()
+    timezone_info = "Europe/Moscow (ZoneInfo)" if MOSCOW_TZ else "UTC+3 (ручная коррекция)"
+    
     debug_text = f"""
 🔧 Отладочная информация:
 • User ID: {user_chat_id}
@@ -396,7 +407,7 @@ def debug_info(message):
 • Последнее сообщение: {last_message_time}
 • Активных заданий: {len(scheduler.get_jobs())}
 • Владелец: {OWNER_CHAT_ID}
-• Часовой пояс: Europe/Moscow (UTC+3)
+• Часовой пояс: {timezone_info}
     """
     bot.send_message(message.chat.id, debug_text)
 
@@ -419,7 +430,7 @@ def status(message):
 • Контент: {len(content_jobs)} заданий
 • Всего: {len(jobs)} заданий
 • Пользователь: {'подключен' if user_chat_id else 'не подключен'}
-• Время МСК: {get_moscow_time().strftime('%H:%:%S')}
+• Время МСК: {get_moscow_time().strftime('%H:%M:%S')}
     """
     bot.send_message(message.chat.id, status_text)
 
