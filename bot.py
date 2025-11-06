@@ -114,7 +114,7 @@ def reminder_keyboard():
 def start(message):
     global user_chat_id
     user_chat_id = message.chat.id
-    bot.send_message(user_chat_id, "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊\n\nа сегодня ты уже выпил таблетку?")
+    bot.send_message(user_chat_id, "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут с 8 утра 💊\n\nа сегодня ты уже выпил таблетку?", reply_markup=reminder_keyboard())
     schedule_daily_reminders()
 
 @bot.callback_query_handler(func=lambda call: True)
