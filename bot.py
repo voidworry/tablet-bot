@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import os
 import logging
 import requests
+import pytz  # 🔴 ДОБАВЛЯЕМ БИБЛИОТЕКУ ДЛЯ ЧАСОВЫХ ПОЯСОВ
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -22,8 +23,11 @@ if not OWNER_CHAT_ID:
 OWNER_CHAT_ID = int(OWNER_CHAT_ID)
 print("token и owner_chat_id загружены успешно.")
 
+# 🔴 УКАЗЫВАЕМ МОСКОВСКИЙ ЧАСОВОЙ ПОЯС
+MOSCOW_TZ = pytz.timezone('Europe/Moscow')
+
 bot = telebot.TeleBot(TOKEN)
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(timezone=MOSCOW_TZ)  # 🔴 УКАЗЫВАЕМ ТАЙМЗОНУ ДЛЯ ПЛАНИРОВЩИКА
 user_chat_id = None
 
 # ------------------- контент -------------------
@@ -79,6 +83,10 @@ last_message_time = None
 MIN_INTERVAL = timedelta(minutes=20)  # минимум 20 минут между случайными сообщениями
 
 # ------------------- функции -------------------
+def get_moscow_time():
+    """🔴 ПОЛУЧАЕМ ТЕКУЩЕЕ ВРЕМЯ В МОСКВЕ"""
+    return datetime.now(MOSCOW_TZ)
+
 def send_reminder():
     global last_message_time
     if user_chat_id:
@@ -89,13 +97,13 @@ def send_reminder():
                 "💊 пора принять таблетку!\n\nнажми «принял 💚» если уже выпил, или «отложить на час 🕒» если позже 💕",
                 reply_markup=reminder_keyboard()
             )
-            last_message_time = datetime.now()
+            last_message_time = get_moscow_time()
         except Exception as e:
             logger.error(f"Ошибка отправки напоминания: {e}")
 
 def send_random_sweet_message(ignore_interval=False):
     global last_message_time
-    now = datetime.now()
+    now = get_moscow_time()
     if not ignore_interval and last_message_time and (now - last_message_time) < MIN_INTERVAL:
         return
     if user_chat_id:
@@ -108,7 +116,7 @@ def send_random_sweet_message(ignore_interval=False):
 
 def send_random_meme(ignore_interval=False):
     global last_message_time
-    now = datetime.now()
+    now = get_moscow_time()
     if not ignore_interval and last_message_time and (now - last_message_time) < MIN_INTERVAL:
         return
     if user_chat_id:
@@ -153,7 +161,7 @@ def schedule_interval_reminders(start_delay_minutes=0):
     """Планируем регулярные интервальные напоминания"""
     remove_reminder_jobs()
     
-    now = datetime.now()
+    now = get_moscow_time()  # 🔴 ИСПОЛЬЗУЕМ МОСКОВСКОЕ ВРЕМЯ
     
     if start_delay_minutes > 0:
         # Если указана задержка
@@ -181,7 +189,8 @@ def schedule_first_reminder():
     """Планируем первое напоминание через 30 минут"""
     remove_reminder_jobs()
     
-    run_time = datetime.now() + timedelta(minutes=30)
+    run_time = get_moscow_time() + timedelta(minutes=30)  # 🔴 МОСКОВСКОЕ ВРЕМЯ
+    
     scheduler.add_job(
         send_reminder,
         'date',
@@ -205,7 +214,8 @@ def schedule_delayed_reminder():
     remove_reminder_jobs()
     
     # Отложенное напоминание через час
-    run_time = datetime.now() + timedelta(hours=1)
+    run_time = get_moscow_time() + timedelta(hours=1)  # 🔴 МОСКОВСКОЕ ВРЕМЯ
+    
     scheduler.add_job(
         send_reminder, 
         'date', 
@@ -234,7 +244,7 @@ def schedule_content_messages():
             except:
                 pass
     
-    now = datetime.now()
+    now = get_moscow_time()  # 🔴 МОСКОВСКОЕ ВРЕМЯ
     logger.info(f"Планирование контента на день")
     
     # Планируем 3 милых сообщения в случайное время с 9 до 22
@@ -281,7 +291,7 @@ def start(message):
     logger.info(f"Бот запущен пользователем {user_chat_id}")
     
     # Определяем какое сообщение показать в зависимости от времени
-    now = datetime.now()
+    now = get_moscow_time()  # 🔴 МОСКОВСКОЕ ВРЕМЯ
     if now.hour >= 8:
         greeting = "привет, солнышко ☀️ я буду напоминать тебе о таблетках каждые 30 минут 💊\n\nты уже выпил сегодняшнюю таблетку?"
     else:
@@ -378,13 +388,15 @@ def restart_bot(message):
 def debug_info(message):
     """Отладочная информация"""
     global user_chat_id, last_message_time
+    now = get_moscow_time()
     debug_text = f"""
 🔧 Отладочная информация:
 • User ID: {user_chat_id}
-• Время: {datetime.now()}
+• Текущее время (МСК): {now}
 • Последнее сообщение: {last_message_time}
 • Активных заданий: {len(scheduler.get_jobs())}
 • Владелец: {OWNER_CHAT_ID}
+• Часовой пояс: Europe/Moscow (UTC+3)
     """
     bot.send_message(message.chat.id, debug_text)
 
@@ -407,8 +419,15 @@ def status(message):
 • Контент: {len(content_jobs)} заданий
 • Всего: {len(jobs)} заданий
 • Пользователь: {'подключен' if user_chat_id else 'не подключен'}
+• Время МСК: {get_moscow_time().strftime('%H:%:%S')}
     """
     bot.send_message(message.chat.id, status_text)
+
+@bot.message_handler(commands=['time'])
+def show_time(message):
+    """Показать текущее московское время"""
+    now = get_moscow_time()
+    bot.send_message(message.chat.id, f"🕐 Текущее время в Москве: {now.strftime('%H:%M:%S %d.%m.%Y')}")
 
 # ------------------- эхо -------------------
 @bot.message_handler(func=lambda message: True)
@@ -434,7 +453,7 @@ def playful_echo(message):
 # ------------------- старт -------------------
 if __name__ == "__main__":
     scheduler.start()
-    logger.info("Планировщик запущен")
+    logger.info("Планировщик запущен с московским часовым поясом")
     try:
         bot.polling(none_stop=True)
     except Exception as e:
