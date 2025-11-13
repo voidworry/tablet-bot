@@ -7,6 +7,7 @@ import logging
 import requests
 from zoneinfo import ZoneInfo
 import time
+import json
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 # ------------------- настройки -------------------
 TOKEN = os.getenv("TOKEN")
 OWNER_CHAT_ID = os.getenv("OWNER_CHAT_ID") 
+STATE_FILE = "bot_state.json"
 
 if not TOKEN:
     raise ValueError("TOKEN не найден в переменных окружения!")
@@ -56,13 +58,14 @@ memes = [
     "https://i.yapx.ru/cEGTF.jpg",
     "https://i.yapx.ru/cEGTH.jpg",
     "https://i.yapx.ru/cEGTI.jpg",
-    "https://i.yapx.ru/cEGTJ.jpg",
-    "https://i.yapx.ru/cEGTK.jpg",
-    "https://i.yapx.ru/cEGTL.jpg",
-    "https://i.yapx.ru/cEGTM.jpg",
     "https://i.yapx.ru/cEGTO.jpg",
     "https://i.yapx.ru/cEGTP.jpg",
-    "https://i.yapx.ru/cEGTR.jpg"
+    "https://i.yapx.ru/cEGTS.jpg",
+    "https://i.yapx.ru/cEPyO.jpg",
+    "https://i.yapx.ru/cEPyd.jpg",
+    "https://i.yapx.ru/cEPyi.jpg",
+    "https://i.yapx.ru/cEPyw.jpg",
+    "https://i.yapx.ru/cEPy4.jpg"
 ]
 
 # ------------------- основные функции -------------------
@@ -128,7 +131,7 @@ def welcome_keyboard():
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(
         telebot.types.InlineKeyboardButton("💚 уже принял", callback_data="already_taken"),
-        telebot.types.InlineKeyboardButton("💊 еще нет", callback_data="not_yet")
+        telebot.types.InlineKeyboardButton("🤔 еще нет", callback_data="not_yet")
     )
     return markup
 
@@ -205,6 +208,7 @@ def schedule_daily_content():
     today = now.date()
     
     # 4 случайных отправки в день с 9 до 22
+    scheduled_count = 0
     for i in range(4):
         hour = random.randint(9, 22)
         minute = random.randint(0, 59)
@@ -221,7 +225,25 @@ def schedule_daily_content():
                 run_date=run_time,
                 id=f"daily_content_{i}"
             )
+            scheduled_count += 1
             logger.info(f"Контент запланирован на {run_time}")
+    
+    logger.info(f"Запланировано {scheduled_count} контентных заданий на сегодня")
+    
+    # Планируем перепланировку на следующий день в 00:01
+    tomorrow = today + timedelta(days=1)
+    if MOSCOW_TZ:
+        next_day_time = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 0, 1, 0, tzinfo=MOSCOW_TZ)
+    else:
+        next_day_time = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 0, 1, 0) + timedelta(hours=3)
+    
+    scheduler.add_job(
+        schedule_daily_content,
+        'date',
+        run_date=next_day_time,
+        id="reschedule_content"
+    )
+    logger.info(f"Перепланировка контента запланирована на {next_day_time}")
 
 # ------------------- обработчики -------------------
 @bot.message_handler(commands=['start'])
@@ -252,7 +274,7 @@ def callback_query(call):
     responses = {
         "already_taken": ("💚 умничка! 🌸 напоминания вернутся завтра в 8 утра 💖", "stop_until_tomorrow"),
         "taken": ("💚 умничка! 🌸 напоминания вернутся завтра в 8 утра 💖", "stop_until_tomorrow"), 
-        "not_yet": ("💊 хорошо! напомню тебе через полчаса! 🌸", "start_now"),
+        "not_yet": ("💗 хорошо! напомню тебе через полчаса! 🌸", "start_now"),
         "delay": ("🕒 окей, напомню через час 💕", "delay_hour")
     }
 
@@ -349,6 +371,12 @@ def ping(message):
     response_time = round((time.time() - start_time) * 1000, 2)
     status = "⚠️ МЕДЛЕННО" if response_time > 1000 else "✅ НОРМА" if response_time > 100 else "🚀 БЫСТРО"
     bot.send_message(message.chat.id, f"⏱ {response_time} мс | {status}")
+
+@bot.message_handler(commands=['reschedule'])
+def reschedule_content(message):
+    """Принудительно перепланировать контент"""
+    schedule_daily_content()
+    safe_send_message(message.chat.id, "🔄 Контент перепланирован! 💝")
 
 # ------------------- эхо -------------------
 @bot.message_handler(func=lambda message: True)
